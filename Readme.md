@@ -1,6 +1,6 @@
 WebSocket Audio API
 ====================
-####Library to broadcast the sound from the microphone through a WebSocket
+#### Library to broadcast the sound from the microphone through a WebSocket
 
 This library can work in two ways:  
 
