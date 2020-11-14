@@ -16,10 +16,7 @@
 			frameDuration: 20,
 			bufferSize: 4096
 		},
-		server: {
-			host: window.location.hostname,
-			port: 5000
-		}
+		server: 'wss://' + window.location.hostname + ':5000'
 	};
 
 	var audioContext = new(window.AudioContext || window.webkitAudioContext)();
@@ -72,7 +69,7 @@
 		var _this = this;
 
 		if (!this.parentSocket) {
-			this.socket = new WebSocket('wss://' + this.config.server.host + ':' + this.config.server.port);
+			this.socket = new WebSocket(this.config.server);
 		} else {
 			this.socket = this.parentSocket;
 		}
@@ -190,7 +187,7 @@
 		this.gainNode.connect(audioContext.destination);
 
 		if (!this.parentSocket) {
-			this.socket = new WebSocket('wss://' + this.config.server.host + ':' + this.config.server.port);
+			this.socket = new WebSocket(this.config.server);
 		} else {
 			this.socket = this.parentSocket;
 		}
