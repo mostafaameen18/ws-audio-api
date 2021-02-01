@@ -16,7 +16,9 @@
 			frameDuration: 20,
 			bufferSize: 4096
 		},
-		server: 'wss://' + window.location.hostname + ':5000'
+		server: {
+			host: window.location.hostname
+		}
 	};
 
 	var audioContext = new(window.AudioContext || window.webkitAudioContext)();
@@ -28,6 +30,7 @@
 			this.config.server = this.config.server || defaultConfig.server;
 			this.sampler = new Resampler(this.config.codec.sampleRate, audioContext.sampleRate, 1, this.config.codec.bufferSize);
 			this.parentSocket = socket;
+
 			this.decoder = new OpusDecoder(this.config.codec.sampleRate, this.config.codec.channels);
 			this.silence = new Float32Array(this.config.codec.bufferSize);
 		},
@@ -44,12 +47,14 @@
 			this.parentSocket = socket;
 			this.encoder = new OpusEncoder(this.config.codec.sampleRate, this.config.codec.channels, this.config.codec.app, this.config.codec.frameDuration);
 			var _this = this;
+
 			this._makeStream = function(onError) {
 				navigator.getUserMedia({ audio: true }, function(stream) {
 					_this.stream = stream;
 					_this.audioInput = audioContext.createMediaStreamSource(stream);
 					_this.gainNode = audioContext.createGain();
 					_this.recorder = audioContext.createScriptProcessor(_this.config.codec.bufferSize, 1, 1);
+
 					_this.recorder.onaudioprocess = function(e) {
 						var resampled = _this.sampler.resampler(e.inputBuffer.getChannelData(0));
 						var packets = _this.encoder.encode_float(resampled);
@@ -57,6 +62,7 @@
 							if (_this.socket.readyState == 1) _this.socket.send(packets[i]);
 						}
 					};
+
 					_this.audioInput.connect(_this.gainNode);
 					_this.gainNode.connect(_this.recorder);
 					_this.recorder.connect(audioContext.destination);
@@ -69,7 +75,7 @@
 		var _this = this;
 
 		if (!this.parentSocket) {
-			this.socket = new WebSocket(this.config.server);
+			this.socket = new WebSocket(this.config.server.host);
 		} else {
 			this.socket = this.parentSocket;
 		}
@@ -80,6 +86,7 @@
 			this._makeStream(onError);
 		} else if (this.socket.readyState == WebSocket.CONNECTING) {
 			var _onopen = this.socket.onopen;
+
 			this.socket.onopen = function() {
 				if (_onopen) {
 					_onopen();
@@ -91,9 +98,10 @@
 		}
 
 		var _onclose = this.socket.onclose;
-		this.socket.onclose = function() {
+
+		this.socket.onclose = function(event) {
 			if (_onclose) {
-				_onclose();
+				_onclose(event);
 			}
 			if (_this.audioInput) {
 				_this.audioInput.disconnect();
@@ -108,7 +116,7 @@
 				_this.recorder = null;
 			}
 			_this.stream.getTracks()[0].stop();
-			console.log('Disconnected from server');
+			console.log('Disconnected from server', event.reason);
 		};
 	};
 
@@ -187,7 +195,7 @@
 		this.gainNode.connect(audioContext.destination);
 
 		if (!this.parentSocket) {
-			this.socket = new WebSocket(this.config.server);
+			this.socket = new WebSocket(this.config.server.host);
 		} else {
 			this.socket = this.parentSocket;
 		}
