@@ -6,7 +6,6 @@
 //    Sample Rate: 8000, 12000, 16000, 24000, or 48000
 //    Frame Duration: 2.5, 5, 10, 20, 40, 60
 //    Buffer Size = sample rate/6000 * 1024
-
 (function(global) {
 	var defaultConfig = {
 		codec: {
@@ -59,7 +58,8 @@
 						var resampled = _this.sampler.resampler(e.inputBuffer.getChannelData(0));
 						var packets = _this.encoder.encode_float(resampled);
 						for (var i = 0; i < packets.length; i++) {
-							if (_this.socket.readyState == 1) _this.socket.send(packets[i]);
+							var b64msg = _arrayBufferToBase64(packets[i]);
+							if (_this.socket.readyState == 1) _this.socket.send(b64msg);
 						}
 					};
 
@@ -75,7 +75,7 @@
 		var _this = this;
 
 		if (!this.parentSocket) {
-			this.socket = new WebSocket(this.config.server.host);
+			this.socket = new WebSocket(this.config.server);
 		} else {
 			this.socket = this.parentSocket;
 		}
@@ -195,32 +195,34 @@
 		this.gainNode.connect(audioContext.destination);
 
 		if (!this.parentSocket) {
-			this.socket = new WebSocket(this.config.server.host);
+			this.socket = new WebSocket(this.config.server);
 		} else {
 			this.socket = this.parentSocket;
 		}
-        //this.socket.onopen = function () {
-        //    console.log('Connected to server ' + _this.config.server.host + ' as listener');
-        //};
+        this.socket.onopen = function () {
+           console.log('Connected to server ' + _this.config.server + ' as listener');
+        };
         var _onmessage = this.parentOnmessage = this.socket.onmessage;
         this.socket.onmessage = function(message) {
+			var bytes = JSON.parse(message.data).bytes;
+			var blob = b64toBlob(bytes);
         	if (_onmessage) {
         		_onmessage(message);
         	}
-        	if (message.data instanceof Blob) {
+        	if (blob instanceof Blob) {
         		var reader = new FileReader();
         		reader.onload = function() {
         			_this.audioQueue.write(_this.decoder.decode_float(reader.result));
         		};
-        		reader.readAsArrayBuffer(message.data);
+        		reader.readAsArrayBuffer(blob);
         	}
         };
-        //this.socket.onclose = function () {
-        //    console.log('Connection to server closed');
-        //};
-        //this.socket.onerror = function (err) {
-        //    console.log('Getting audio data error:', err);
-        //};
+        this.socket.onclose = function () {
+           console.log('Connection to server closed');
+        };
+        this.socket.onerror = function (err) {
+           console.log('Getting audio data error:', err);
+        };
       };
 
       WSAudioAPI.Player.prototype.getVolume = function() {
